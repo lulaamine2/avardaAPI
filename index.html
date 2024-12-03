@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <title>Avarda Checkout Example</title>
+</head>
+<body>
+
+<div id="avarda-checkout-container"></div>
+<button id="avarda-complete-purchase">Betala med Avarda</button>
+<script src="https://payment-widget.stage.avarda.com/cdn/payment-widget.js" 
+    crossorigin="anonymous"
+    data-payment-id="5f91c44a-5457-4eda-8eac-f6a60ff6e520" 
+    data-widget-jwt="your_jwt_here"
+    defer>
+</script>
+
+<script>
+
+var CHECKOUT3_JS_BUNDLE =
+    'https://stage.checkout-cdn.avarda.com/cdn/static/js/main.js';
+ 
+  (function (e, t, n, a, s, c, o, i, r) {
+    e[a] =
+      e[a] ||
+      function () {
+        (e[a].q = e[a].q || []).push(arguments);
+      };
+    e[a].i = s;
+    i = t.createElement(n);
+    i.async = 1;
+    i.src = o + '?v=' + c + '&ts=' + 1 * new Date();
+    r = t.getElementsByTagName(n)[0];
+    r.parentNode.insertBefore(i, r);
+  })(
+    window,
+    document,
+    'script',
+    'avardaCheckoutInit',
+    'avardaCheckout',
+    '1.0.0',
+    CHECKOUT3_JS_BUNDLE,
+  );
+
+  var sessionTimedOutCallback = function (avardaCheckoutInstance) {
+    console.log('Session Timed Out - Handle here!');
+  };
+ 
+  var completedPurchaseCallback = function (avardaCheckoutInstance) {
+    console.log('Purchase Completed Successfully - Handle here!');
+  };
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("addEventlistener");
+    fetch('process_payment.php', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Data received:', data);
+        console.log(data.jwt);
+        console.log(data.purchaseId);
+      
+        if (data.jwt && data.purchaseId) {
+            initializeAvarda(data.jwt, data.purchaseId);
+        } else {
+            console.error('Error:', data.error || 'No JWT or purchaseId received');
+        }
+    })
+    .catch(error => console.error('Error during fetch:', error));
+});
+
+
+function initializeAvarda(jwt, purchaseId) {
+    console.log('Initializing Avarda with token and purchaseId:', jwt, purchaseId);
+    var scriptElement = document.querySelector('script[src="https://payment-widget.stage.avarda.com/cdn/payment-widget.js"]');
+
+   avardaCheckout = window.avardaCheckoutInit({
+            "purchaseJwt": jwt,
+            "rootElementId":'avarda-checkout-container' ,
+            "redirectUrl": "www.my-eshop.com",
+            "styles": {},
+            "disableFocus": true,
+            "completedPurchaseCallback": completedPurchaseCallback,
+            "sessionTimedOutCallback": sessionTimedOutCallback,
+        });
+        
+        // Set data attributes
+        scriptElement.setAttribute('data-payment-id', purchaseId);
+        scriptElement.setAttribute('data-widget-jwt', jwt);
+
+    
+}
+
+
+document.getElementById('avarda-complete-purchase').addEventListener('click', function() {
+    avardaCheckout.authorize(function(authorizationResponse) {
+        console.log("Authorization Response:", authorizationResponse);
+        if (authorizationResponse.approved) {
+            processAuthorization(authorizationResponse.authorizationToken);
+        } else {
+            console.error('Authorization was not approved', authorizationResponse);
+        }
+    });
+});
+
+
+function processAuthorization(authorizationToken) {
+    console.log('Processing authorization with token:', authorizationToken);
+    fetch('complete_avarda_purchase.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'authorization_token=' + encodeURIComponent(authorizationToken)
+    })
+    .then(response => response.json())
+    .then(data => console.log('Payment captured', data))
+    .catch(error => console.error('Error capturing payment', error));
+}
+</script>
+</body>
+</html>
+
+
